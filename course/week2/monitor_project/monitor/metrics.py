@@ -25,7 +25,13 @@ def get_ks_score(tr_probs, te_probs):
   # te_probs: torch.Tensor
   #   predicted probabilities from test test
   # score: float - between 0 and 1
-  pass  # remove me
+  tr_probs_np = tr_probs.numpy()
+  te_probs_np = te_probs.numpy()
+
+  # Apply ks_2samp to get the KS statistic and p-value
+  _, p_value = ks_2samp(tr_probs_np, te_probs_np)
+
+  score = p_value
   # ============================
   return score
 
@@ -68,7 +74,26 @@ def get_hist_score(tr_probs, te_probs, bins=10):
   # 
   # Read the documentation for `np.histogram` carefully, in
   # particular what `bin_edges` represent.
-  pass  # remove me
+
+  # Convert torch tensors to numpy arrays
+  tr_probs_np = tr_probs.numpy()
+  te_probs_np = te_probs.numpy()
+
+  # Create histogram for training probabilities
+  tr_heights, bin_edges = np.histogram(tr_probs_np, bins=bins, density=True)
+
+  # Create histogram for test probabilities using the same bin edges
+  te_heights, _ = np.histogram(te_probs_np, bins=bin_edges, density=True)
+
+  score = 0
+  for i in range(len(tr_heights)):
+      bin_start = bin_edges[i]
+      bin_end = bin_edges[i+1]
+      bin_diff = bin_end - bin_start
+      tr_area = bin_diff * tr_heights[i]
+      te_area = bin_diff * te_heights[i]
+      intersect = min(tr_area, te_area)
+      score += intersect
   # ============================
   return score
 
@@ -97,7 +122,18 @@ def get_vocab_outlier(tr_vocab, te_vocab):
   # te_vocab: dict[str, int]
   #   Map from word to count for test examples
   # score: float (between 0 and 1)
-  pass  # remove me
+
+  score = None
+  # Compute the number of words in the test vocabulary that appear in the training vocabulary
+  num_seen = sum(1 for word in te_vocab if word in tr_vocab)
+  # Compute the total number of words in the test vocabulary
+  num_total = len(te_vocab)
+  
+  if num_total == 0:
+    print("num_total == 0")
+    return 1
+  
+  score = 1 - (num_seen / num_total)
   # ============================
   return score
 
@@ -127,12 +163,33 @@ class MonitoringSystem:
     # 
     # Type:
     # --
+    # tr_probs: torch.Tensor
+    #   predicted probabilities from training test
+    # te_probs: torch.Tensor
+    #   predicted probabilities from test test
+    #
     # `tr_probs_cal`: torch.Tensor. Note that sklearn
     # returns a NumPy array. You will need to cast 
     # it to a torch.Tensor.
     # 
     # `te_probs_cal`: torch.Tensor
-    pass  # remove me
+    iso_reg = IsotonicRegression(out_of_bounds='clip')
+    
+    # Convert torch tensors to numpy arrays for sklearn
+    tr_probs_np = tr_probs.numpy()
+    tr_labels_np = tr_labels.numpy()
+    te_probs_np = te_probs.numpy()
+    
+    # Fit the model on training data
+    iso_reg.fit(tr_probs_np, tr_labels_np)
+    
+    # Calibrate probabilities
+    tr_probs_cal_np = iso_reg.transform(tr_probs_np)
+    te_probs_cal_np = iso_reg.transform(te_probs_np)
+    
+    # Convert calibrated probabilities back to torch tensors
+    tr_probs_cal = torch.from_numpy(tr_probs_cal_np).float()
+    te_probs_cal = torch.from_numpy(te_probs_cal_np).float()
     # ============================
     return tr_probs_cal, te_probs_cal
 
