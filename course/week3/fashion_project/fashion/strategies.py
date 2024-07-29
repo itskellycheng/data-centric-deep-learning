@@ -21,6 +21,13 @@ def random_sampling(pred_probs: torch.Tensor, budget : int = 1000) -> List[int]:
   # HINT: when you randomly sample, do not choose duplicates.
   # HINT: please ensure indices is a list of integers
   # ================================
+
+  all_indices = np.arange(len(pred_probs))
+  indices = np.random.choice(all_indices, size=budget, replace=False)
+  indices = indices.tolist()
+  # total_examples = len(pred_probs)
+  # indices = random.sample(range(total_examples), budget)
+
   return indices
 
 def uncertainty_sampling(pred_probs: torch.Tensor, budget : int = 1000) -> List[int]:
@@ -39,6 +46,18 @@ def uncertainty_sampling(pred_probs: torch.Tensor, budget : int = 1000) -> List[
   # Take the first 1000.
   # HINT: please ensure indices is a list of integers
   # ================================
+  
+  # Calculate the distance from chance_prob for each probability
+  distance_from_chance = torch.abs(pred_probs - chance_prob)
+  
+  # Get the minimum distance for each example
+  min_distances, _ = torch.min(distance_from_chance, dim=1)
+  
+  # Sort indices by the minimum distances (ascending order)
+  sorted_indices = torch.argsort(min_distances)
+  
+  indices = sorted_indices[:budget].tolist()
+
   return indices
 
 def margin_sampling(pred_probs: torch.Tensor, budget : int = 1000) -> List[int]:
@@ -53,6 +72,17 @@ def margin_sampling(pred_probs: torch.Tensor, budget : int = 1000) -> List[int]:
   # Sort indices by the different in predicted probabilities in the top two classes per example.
   # Take the first 1000.
   # ================================
+  # Get the top two probabilities for each example
+  top_2_probs, _ = torch.topk(pred_probs, k=2, dim=1)
+  
+  # Calculate the margin (difference between top two probabilities)
+  margins = top_2_probs[:, 0] - top_2_probs[:, 1]
+  
+  # Sort indices by margin (ascending order)
+  sorted_indices = torch.argsort(margins)
+  
+  indices = sorted_indices[:budget].tolist()
+
   return indices
 
 def entropy_sampling(pred_probs: torch.Tensor, budget : int = 1000) -> List[int]:
@@ -71,4 +101,14 @@ def entropy_sampling(pred_probs: torch.Tensor, budget : int = 1000) -> List[int]
   # Take the first 1000.
   # HINT: Add epsilon when taking a log for entropy computation
   # ================================
+
+  # Calculate entropy for each example
+  log_probs = torch.log(pred_probs + epsilon)
+  entropies = -torch.sum(pred_probs * log_probs, dim=1)
+  
+  # Sort indices by entropy (descending order)
+  sorted_indices = torch.argsort(entropies, descending=True)
+  
+  indices = sorted_indices[:budget].tolist()
+
   return indices

@@ -54,7 +54,11 @@ class TrainFlow(FlowSpec):
         # Any augmentations to apply to the training dataset with the goal of 
         # enlarging the effective dataset size via "self supervision": an augmented
         # data point maintains the same label.
-        # TODO
+        transforms.RandomRotation(degrees=30),  # Rotate by up to 30 degrees
+        # transforms.RandomHorizontalFlip(p=0.5),  # 50% chance of horizontal flip
+        # transforms.RandomVerticalFlip(p=0.5),  # 50% chance of vertical flip
+        # transforms.GaussianBlur(kernel_size=3, sigma=(0.1, 2.0)),  # Add some blur
+        # transforms.ColorJitter(brightness=0.2, contrast=0.2),  # Adjust brightness and contrast
         # ================================
         transforms.ToTensor(),
       ])
@@ -91,10 +95,10 @@ class TrainFlow(FlowSpec):
     dm = FashionDataModule(transform=self.transform)
 
     # a PyTorch Lightning system wraps around model logic
-    system = FashionClassifierSystem(self.config)
+    self.system = FashionClassifierSystem(self.config)
 
     # Call `fit` on the trainer with `system` and `dm`.
-    self.trainer.fit(system, dm)
+    self.trainer.fit(self.system, dm)
 
     self.next(self.offline_test)
 
@@ -103,10 +107,10 @@ class TrainFlow(FlowSpec):
     r"""Calls (offline) `test` on the trainer. Saves results to a log file."""
 
     dm = FashionDataModule(transform=self.transform)
-    system = FashionClassifierSystem(self.config)
+    # system = FashionClassifierSystem(self.config)
 
     # Load the best checkpoint and compute results using `self.trainer.test`
-    self.trainer.test(system, dm, ckpt_path = 'best')
+    self.trainer.test(self.system, dm, ckpt_path = 'best')
     results = self.system.test_results
 
     # print results to command line
